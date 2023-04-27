@@ -6,6 +6,8 @@ import (
 	"strings"
 
 	"github.com/RyuaNerin/go-fflogs/structure"
+	"github.com/martinlindhe/base36"
+	gonanoid "github.com/matoous/go-nanoid"
 )
 
 var JobsMap = map[string]string{
@@ -33,7 +35,20 @@ func JobNameToJobAbbr(name string) string {
 	return JobsMap[strings.ToLower(name)]
 }
 
-func CharacterUID(fightsFriendly *structure.FightsFriendly) string {
+func FFLogsEncounterInfoHash(fflFight *structure.FightsFight) string {
+	hashBytes := sha256.Sum256([]byte(fmt.Sprintf("%d", fflFight.Boss)))
+	return base36.EncodeBytes(hashBytes[:])
+}
+
+func FFLogsCharacterHash(fightsFriendly *structure.FightsFriendly) string {
 	hashBytes := sha256.Sum256([]byte(fightsFriendly.Name + fightsFriendly.Server))
-	return fmt.Sprintf("%x", hashBytes)
+	return base36.EncodeBytes(hashBytes[:])
+}
+
+func GenerateUUID() string {
+	id, err := gonanoid.Nanoid()
+	if err != nil {
+		panic(err)
+	}
+	return id
 }

@@ -1,6 +1,8 @@
 package main
 
 import (
+	"fmt"
+
 	"github.com/RyuaNerin/go-fflogs/structure"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
@@ -8,10 +10,11 @@ import (
 
 type EncounterInfo struct {
 	gorm.Model
-	BossID     int64
-	ZoneID     int64
-	ZoneName   string
-	Difficulty int64
+	CompareHash string
+	BossID      int64
+	ZoneID      int64
+	ZoneName    string
+	Difficulty  int64
 }
 
 type CharacterProgression struct {
@@ -42,7 +45,8 @@ func (cp CharacterProgression) IsImprovement(fflFight *structure.FightsFight) bo
 
 type Character struct {
 	gorm.Model
-	UID         string
+	UUID        string
+	CompareHash string
 	Name        string
 	Server      string
 	Job         string
@@ -72,33 +76,39 @@ func NewDatabaserHandler(config *Config) (*DatabaseHandler, error) {
 	}, nil
 }
 
-func (d DatabaseHandler) FetchEncounterInfoFromBossID(bossID int64) (EncounterInfo, error) {
+func (d DatabaseHandler) FetchEncounterInfoFromCompareHash(hash string) (EncounterInfo, error) {
 	encounterInfo := EncounterInfo{}
-	tx := d.Conn.First(&encounterInfo, "boss_id = ?", bossID)
+	tx := d.Conn.First(&encounterInfo, "compare_hash = ?", hash)
 	return encounterInfo, tx.Error
 }
 
-func (d DatabaseHandler) FetchCharacterFromUID(uid string) (Character, error) {
+func (d DatabaseHandler) FetchCharacterFromUUID(uuid string) (Character, error) {
 	character := Character{}
-	tx := d.Conn.First(&character, "uid = ?", uid)
+	tx := d.Conn.Preload("Progression").Preload("Progression.EncounterInfo").First(&character, "uuid = ?", uuid)
 	return character, tx.Error
 }
 
-func (d DatabaseHandler) syncEncounterInfoFromFFLogsReportFights(reportFights *structure.Fights) error {
-	for _, fight := range reportFights.Fights {
-		encounterInfo := EncounterInfo{}
-		tx := d.Conn.First(&encounterInfo, "boss_id = ?", fight.Boss)
-		if tx.Error != nil {
-			if tx.Error != gorm.ErrRecordNotFound {
-				return tx.Error
+func (d DatabaseHandler) FetchCharacterFromCompareHash(hash string) (Character, error) {
+	character := Character{}
+	tx := d.Conn.First(&character, "compare_hash = ?", hash)
+	return character, tx.Error
+}
+
+func (d DatabaseHandler) syncEncounterInfoFromFFLogsReportFights(fflReportFights *structure.Fights) error {
+	for _, fflFight := range fflReportFights.Fights {
+		compareHash := FFLogsEncounterInfoHash(&fflFight)
+		encounterInfo, err := d.FetchEncounterInfoFromCompareHash(compareHash)
+		if err != nil {
+			if err != gorm.ErrRecordNotFound {
+				return err
 			}
 			// create if not exist
-			encounterInfo.BossID = fight.Boss
-			encounterInfo.ZoneID = fight.ZoneID
-			encounterInfo.ZoneName = fight.ZoneName
-			encounterInfo.Difficulty = *fight.Difficulty
-			tx = d.Conn.Create(&encounterInfo)
-			if tx.Error != nil {
+			encounterInfo.BossID = fflFight.Boss
+			encounterInfo.ZoneID = fflFight.ZoneID
+			encounterInfo.ZoneName = fflFight.ZoneName
+			encounterInfo.Difficulty = *fflFight.Difficulty
+			encounterInfo.CompareHash = compareHash
+			if tx := d.Conn.Create(&encounterInfo); tx.Error != nil {
 				return tx.Error
 			}
 		}
@@ -111,20 +121,19 @@ func (d DatabaseHandler) syncCharacterFromFFLogsReportFights(reportFights *struc
 		if fflCharacter.Name == "" || fflCharacter.Server == "" || fflCharacter.Type == "" {
 			continue
 		}
-		uid := CharacterUID(&fflCharacter)
-		characterDb := Character{}
-		tx := d.Conn.First(&characterDb, "uid = ?", uid)
-		if tx.Error != nil {
-			if tx.Error != gorm.ErrRecordNotFound {
-				return tx.Error
+		compareHash := FFLogsCharacterHash(&fflCharacter)
+		character, err := d.FetchCharacterFromCompareHash(compareHash)
+		if err != nil {
+			if err != gorm.ErrRecordNotFound {
+				return err
 			}
 			// create if not exist
-			characterDb.Name = fflCharacter.Name
-			characterDb.Server = fflCharacter.Server
-			characterDb.Job = JobNameToJobAbbr(fflCharacter.Type)
-			characterDb.UID = uid
-			tx = d.Conn.Create(&characterDb)
-			if tx.Error != nil {
+			character.Name = fflCharacter.Name
+			character.Server = fflCharacter.Server
+			character.Job = JobNameToJobAbbr(fflCharacter.Type)
+			character.CompareHash = compareHash
+			character.UUID = GenerateUUID()
+			if tx := d.Conn.Create(&character); tx.Error != nil {
 				return tx.Error
 			}
 		}
@@ -134,14 +143,12 @@ func (d DatabaseHandler) syncCharacterFromFFLogsReportFights(reportFights *struc
 
 func (d DatabaseHandler) syncCharacterProgressionFromFFLogsReportFights(reportFights *structure.Fights) error {
 	for _, fflFight := range reportFights.Fights {
-		encounter, err := d.FetchEncounterInfoFromBossID(fflFight.Boss)
+		encounter, err := d.FetchEncounterInfoFromCompareHash(FFLogsEncounterInfoHash(&fflFight))
 		if err != nil {
 			return err
 		}
-
 		for _, fflCharacter := range reportFights.Friendlies {
-			uid := CharacterUID(&fflCharacter)
-			character, err := d.FetchCharacterFromUID(uid)
+			character, err := d.FetchCharacterFromCompareHash(FFLogsCharacterHash(&fflCharacter))
 			if err != nil {
 				if err == gorm.ErrRecordNotFound {
 					continue
@@ -186,4 +193,10 @@ func (d DatabaseHandler) HandleFFLogsReportFights(reportFights *structure.Fights
 		return err
 	}
 	return nil
+}
+
+func (d DatabaseHandler) FindCharacters(name string) ([]Character, error) {
+	characters := make([]Character, 0)
+	tx := d.Conn.Where("name LIKE ?", fmt.Sprintf("%%%s%%", name)).Find(&characters)
+	return characters, tx.Error
 }
