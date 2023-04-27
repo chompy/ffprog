@@ -1,14 +1,17 @@
 package main
 
-import "github.com/RyuaNerin/go-fflogs"
-import "context"
-import "fmt"
+import (
+	"context"
 
-type FFLogsImporter struct {
+	"github.com/RyuaNerin/go-fflogs"
+	"github.com/RyuaNerin/go-fflogs/structure"
+)
+
+type FFLogsHandler struct {
 	client *fflogs.Client
 }
 
-func NewFFLogsImporter(config *Config) (*FFLogsImporter, error) {
+func NewFFLogsHandler(config *Config) (*FFLogsHandler, error) {
 	opts := fflogs.ClientOpt{
 		ApiKey: config.ApiKey,
 	}
@@ -18,33 +21,26 @@ func NewFFLogsImporter(config *Config) (*FFLogsImporter, error) {
 		return nil, err
 	}
 
-	return &FFLogsImporter{
+	return &FFLogsHandler{
 		client: client,
 	}, nil
 }
 
-func (ffl FFLogsImporter) ImportReport(code string) error {
+func (ffl FFLogsHandler) FetchReportFights(code string) (*structure.Fights, error) {
 	reportOpts := fflogs.ReportFightsOptions{
 		Code: code,
 	}
-	fights, err := ffl.client.ReportFights(context.Background(), &reportOpts)
-	if err != nil {
-		return err
-	}
-
+	return ffl.client.ReportFights(context.Background(), &reportOpts)
 	// TODO import to database here
 	/*for _, f := range fights.Fights {
-	
-		fmt.Printf("%s (%d) - %d", f.ZoneName, f.ID, *f.FightPercentage)
-		fmt.Println(f)
+
+		fmt.Printf("%s (%d) - %d %d %d\n", f.ZoneName, f.ID, *f.FightPercentage, *f.LastPhaseForPercentageDisplay, *f.BossPercentage)
 
 	}*/
 
-	fmt.Println(fights.Friendlies)
+	/*fmt.Println(fights.Friendlies)
 
 	for _, d := range fights.Friendlies {
 		fmt.Println(d.Name, d.Server, d.Type, d.Icon)
-	}
-
-	return nil
+	}*/
 }

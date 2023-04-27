@@ -1,12 +1,15 @@
 package main
 
-import "os"
-import "encoding/json"
+import (
+	"encoding/json"
+	"os"
+)
 
 const configFilePath = "config.json"
 
 type Config struct {
-	ApiKey string `json:"apiKey"`
+	ApiKey       string `json:"apiKey"`
+	DatabaseFile string `json:"databaseFile"`
 }
 
 func LoadConfig() (Config, error) {
@@ -17,7 +20,7 @@ func LoadConfig() (Config, error) {
 	}
 	jsonParser := json.NewDecoder(rawConfigData)
 	if err = jsonParser.Decode(&config); err != nil {
-        return config, err
-    }
+		return config, err
+	}
 	return config, nil
 }

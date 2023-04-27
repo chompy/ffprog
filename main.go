@@ -1,16 +1,18 @@
 package main
 
-import "fmt"
-import "os"
+import (
+	"fmt"
+	"os"
+)
 
 func main() {
-    
+
 	// load global config
 	config, err := LoadConfig()
 	if err != nil {
 		panic(err)
 	}
-	
+
 	// parse subcommand
 	subcommandName := "web"
 	if len(os.Args) > 1 {
@@ -19,38 +21,47 @@ func main() {
 
 	// handle subcommand
 	switch subcommandName {
-	case "web": {
-		fmt.Println("WEB NOT YET IMPLEMENTED.")
-		return
-	}
-	case "import": {
-
-		// parse import args
-		if len(os.Args) < 3 {
-			panic(ErrMissingArgument)
+	case "web":
+		{
+			fmt.Println("WEB NOT YET IMPLEMENTED.")
+			return
 		}
-		reportId := os.Args[2]
+	case "import":
+		{
 
-		ffl, err := NewFFLogsImporter(&config)
-		if err != nil {
-			panic(err)
+			// parse import args
+			if len(os.Args) < 3 {
+				panic(ErrMissingArgument)
+			}
+			reportId := os.Args[2]
+
+			ffl, err := NewFFLogsHandler(&config)
+			if err != nil {
+				panic(err)
+			}
+
+			db, err := NewDatabaserHandler(&config)
+			if err != nil {
+				panic(err)
+			}
+
+			reportFights, err := ffl.FetchReportFights(reportId)
+			if err != nil {
+				panic(err)
+			}
+
+			if err := db.HandleFFLogsReportFights(reportFights); err != nil {
+				panic(err)
+			}
+			return
+
 		}
-
-		if err := ffl.ImportReport(reportId); err != nil {
-			panic(err)
+	case "character":
+		{
+			return
 		}
-
-		return
-	}
-	case "character": {
-		return
-	}
 	}
 
 	panic(ErrInvalidSubCommand)
-
-
-
-
 
 }
