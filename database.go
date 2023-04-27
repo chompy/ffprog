@@ -29,6 +29,17 @@ type CharacterProgression struct {
 	HasStandardComposition bool
 }
 
+func (cp CharacterProgression) IsImprovement(fflFight *structure.FightsFight) bool {
+	// no record previously stored
+	if cp.ID == 0 {
+		return true
+	}
+	encounterTime := fflFight.EndTime - fflFight.StartTime
+	// if player is still progressing then an improvement is when the fight percent value is lower than the best fight percent
+	// if player has a win then an improvement is the best clear time
+	return (!*fflFight.Kill && *fflFight.FightPercentage < cp.BestFightPercentage) || (*fflFight.Kill && (!cp.HasKill || encounterTime < cp.BestEncounterTime))
+}
+
 type Character struct {
 	gorm.Model
 	UID         string
@@ -138,11 +149,11 @@ func (d DatabaseHandler) syncCharacterProgressionFromFFLogsReportFights(reportFi
 				return err
 			}
 			characterProgression := CharacterProgression{}
-			tx := d.Conn.First(&characterProgression, "encounter_info_id = ? AND character_id", encounter.ID, character.ID)
+			tx := d.Conn.First(&characterProgression, "encounter_info_id = ? AND character_id = ?", encounter.ID, character.ID)
 			if tx.Error != nil && tx.Error != gorm.ErrRecordNotFound {
 				return tx.Error
 			}
-			if *fflFight.FightPercentage < characterProgression.BestFightPercentage || characterProgression.ID == 0 {
+			if characterProgression.IsImprovement(&fflFight) {
 				encounterTime := fflFight.EndTime - fflFight.StartTime
 				characterProgression.BestEncounterTime = encounterTime
 				characterProgression.BestFightPercentage = *fflFight.FightPercentage
