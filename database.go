@@ -34,7 +34,7 @@ type CharacterProgression struct {
 
 func (cp CharacterProgression) IsImprovement(fflFight *structure.FightsFight) bool {
 	// no record previously stored
-	if cp.ID == 0 {
+	if cp.ID == 0 || fflFight.FightPercentage == nil || fflFight.Kill == nil {
 		return true
 	}
 	encounterTime := fflFight.EndTime - fflFight.StartTime
@@ -106,7 +106,9 @@ func (d DatabaseHandler) syncEncounterInfoFromFFLogsReportFights(fflReportFights
 			encounterInfo.BossID = fflFight.Boss
 			encounterInfo.ZoneID = fflFight.ZoneID
 			encounterInfo.ZoneName = fflFight.ZoneName
-			encounterInfo.Difficulty = *fflFight.Difficulty
+			if fflFight.Difficulty != nil {
+				encounterInfo.Difficulty = *fflFight.Difficulty
+			}
 			encounterInfo.CompareHash = compareHash
 			if tx := d.Conn.Create(&encounterInfo); tx.Error != nil {
 				return tx.Error
@@ -163,13 +165,28 @@ func (d DatabaseHandler) syncCharacterProgressionFromFFLogsReportFights(reportFi
 			if characterProgression.IsImprovement(&fflFight) {
 				encounterTime := fflFight.EndTime - fflFight.StartTime
 				characterProgression.BestEncounterTime = encounterTime
-				characterProgression.BestFightPercentage = *fflFight.FightPercentage
-				characterProgression.BestPhasePercentage = *fflFight.BossPercentage
-				characterProgression.BestPhase = *fflFight.LastPhaseForPercentageDisplay
+				characterProgression.BestFightPercentage = 10000
+				if fflFight.FightPercentage != nil {
+					characterProgression.BestFightPercentage = *fflFight.FightPercentage
+				}
+				characterProgression.BestPhasePercentage = 10000
+				if fflFight.BossPercentage != nil {
+					characterProgression.BestPhasePercentage = *fflFight.BossPercentage
+				}
+				characterProgression.BestPhase = 0
+				if fflFight.LastPhaseForPercentageDisplay != nil {
+					characterProgression.BestPhase = *fflFight.LastPhaseForPercentageDisplay
+				}
 				characterProgression.GameVersion = reportFights.GameVersion
-				characterProgression.HasKill = *fflFight.Kill
-				characterProgression.HasEcho = *fflFight.HasEcho
-				characterProgression.HasStandardComposition = *fflFight.StandardComposition
+				if fflFight.Kill != nil {
+					characterProgression.HasKill = *fflFight.Kill
+				}
+				if fflFight.HasEcho != nil {
+					characterProgression.HasEcho = *fflFight.HasEcho
+				}
+				if fflFight.StandardComposition != nil {
+					characterProgression.HasStandardComposition = *fflFight.StandardComposition
+				}
 				characterProgression.CharacterID = character.ID
 				characterProgression.EncounterInfoID = encounter.ID
 				if tx := d.Conn.Save(&characterProgression); tx.Error != nil {

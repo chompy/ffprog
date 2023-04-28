@@ -36,7 +36,7 @@ func JobNameToJobAbbr(name string) string {
 }
 
 func FFLogsEncounterInfoHash(fflFight *structure.FightsFight) string {
-	hashBytes := sha256.Sum256([]byte(fmt.Sprintf("%d", fflFight.Boss)))
+	hashBytes := sha256.Sum256([]byte(fmt.Sprintf("%d", fflFight.ZoneID)))
 	return base36.EncodeBytes(hashBytes[:])
 }
 
