@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/RyuaNerin/go-fflogs/structure"
 	"gorm.io/driver/sqlite"
@@ -23,6 +24,8 @@ type CharacterProgression struct {
 	EncounterInfoID        uint
 	EncounterInfo          EncounterInfo
 	GameVersion            int64
+	FirstKillTime          time.Time // first time character killed the encounter
+	LastProgressionTime    time.Time // last time progress was made, includes getting a faster clear time
 	BestFightPercentage    int64
 	BestPhase              int64
 	BestPhasePercentage    int64
@@ -40,7 +43,7 @@ func (cp CharacterProgression) IsImprovement(fflFight *structure.FightsFight) bo
 	encounterTime := fflFight.EndTime - fflFight.StartTime
 	// if player is still progressing then an improvement is when the fight percent value is lower than the best fight percent
 	// if player has a win then an improvement is the best clear time
-	return (!*fflFight.Kill && *fflFight.FightPercentage < cp.BestFightPercentage) || (*fflFight.Kill && (!cp.HasKill || encounterTime < cp.BestEncounterTime))
+	return (!cp.HasKill && !*fflFight.Kill && *fflFight.FightPercentage < cp.BestFightPercentage) || (*fflFight.Kill && (!cp.HasKill || encounterTime < cp.BestEncounterTime))
 }
 
 type Character struct {
@@ -164,6 +167,7 @@ func (d DatabaseHandler) syncCharacterProgressionFromFFLogsReportFights(reportFi
 			}
 			if characterProgression.IsImprovement(&fflFight) {
 				encounterTime := fflFight.EndTime - fflFight.StartTime
+				endTime := time.UnixMilli(reportFights.Start + fflFight.EndTime)
 				characterProgression.BestEncounterTime = encounterTime
 				characterProgression.BestFightPercentage = 10000
 				if fflFight.FightPercentage != nil {
@@ -179,7 +183,10 @@ func (d DatabaseHandler) syncCharacterProgressionFromFFLogsReportFights(reportFi
 				}
 				characterProgression.GameVersion = reportFights.GameVersion
 				if fflFight.Kill != nil {
-					characterProgression.HasKill = *fflFight.Kill
+					if *fflFight.Kill && (!characterProgression.HasKill || characterProgression.FirstKillTime.After(endTime)) {
+						characterProgression.FirstKillTime = endTime
+						characterProgression.HasKill = true
+					}
 				}
 				if fflFight.HasEcho != nil {
 					characterProgression.HasEcho = *fflFight.HasEcho
@@ -189,6 +196,9 @@ func (d DatabaseHandler) syncCharacterProgressionFromFFLogsReportFights(reportFi
 				}
 				characterProgression.CharacterID = character.ID
 				characterProgression.EncounterInfoID = encounter.ID
+				if characterProgression.LastProgressionTime.Before(endTime) {
+					characterProgression.LastProgressionTime = endTime
+				}
 				if tx := d.Conn.Save(&characterProgression); tx.Error != nil {
 					return tx.Error
 				}

@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"os"
+	"time"
 )
 
 func main() {
@@ -111,7 +112,7 @@ func main() {
 					statusText = fmt.Sprintf("P%d %d%%", progression.BestPhase, percent)
 				}
 
-				fmt.Printf("%s :: %s\n", progression.EncounterInfo.ZoneName, statusText)
+				fmt.Printf("%s :: %s (%s)\n", progression.EncounterInfo.ZoneName, statusText, progression.LastProgressionTime.Format(time.RFC3339))
 			}
 
 			return
