@@ -1,0 +1,43 @@
+{{ define "headerLeft" }}
+{{ end }}
+
+{{ define "headerRight" }}
+{{ end }}
+
+{{ define "content" }}
+
+<div class="about">
+    <h2>Track your raid progression</h2>
+    <p>FFProg allows you to track the raid progression of players in Final Fantasy XIV.</p>
+</div>
+
+<div class="forms">
+
+    <div class="import pure-form">
+        <h3>Import progression data via FFLogs report...</h3>
+        <input type="text" id="f-import" placeholder="FFLogs report URL..." />
+    </div>
+    <div class="search pure-form">
+        <h3>Search for character...</h3>
+
+        <input
+            id="f-search"
+            class="form-control"
+            type="search"
+            placeholder="Character name..."
+            name="n"
+            hx-get="/s"
+            hx-trigger="keyup changed delay:500ms, search"
+            hx-target="#search-results"
+            hx-indicator="#search-load"
+        />
+
+        <div id="search-load" class="loader"></div>
+        <div id="search-results">
+            <em>Enter a character name above!</em>
+        </div>
+    </div>
+
+</div>
+
+{{ end }}

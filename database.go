@@ -196,9 +196,7 @@ func (d DatabaseHandler) syncCharacterProgressionFromFFLogsReportFights(reportFi
 				}
 				characterProgression.CharacterID = character.ID
 				characterProgression.EncounterInfoID = encounter.ID
-				if characterProgression.LastProgressionTime.Before(endTime) {
-					characterProgression.LastProgressionTime = endTime
-				}
+				characterProgression.LastProgressionTime = endTime
 				if tx := d.Conn.Save(&characterProgression); tx.Error != nil {
 					return tx.Error
 				}

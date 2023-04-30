@@ -24,7 +24,9 @@ func main() {
 	switch subcommandName {
 	case "web":
 		{
-			fmt.Println("WEB NOT YET IMPLEMENTED.")
+			if err := StartWeb(&config); err != nil {
+				panic(err)
+			}
 			return
 		}
 	case "import":

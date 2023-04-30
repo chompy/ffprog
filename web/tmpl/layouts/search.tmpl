@@ -1,0 +1,15 @@
+{{ define "content" }}
+
+{{ if not .Characters }}
+    <em>No results found.</em>
+{{ else }}
+
+    {{ range $char := .Characters }}
+        <div class="character">
+            <a href="/c/{{ $char.UUID }}">{{ $char.Name }} @ {{ $char.Server }}</a>
+        </div>
+    {{ end }}
+    
+{{ end }}
+
+{{ end }}
