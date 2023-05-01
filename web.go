@@ -19,7 +19,7 @@ type templateData struct {
 	AppName       string
 	VersionString string
 	Characters    []Character
-	ErrorMessage  string
+	Message       string
 }
 
 func getTemplates() (map[string]*template.Template, error) {
@@ -41,7 +41,7 @@ func getTemplates() (map[string]*template.Template, error) {
 			return fmt.Sprintf("%d%%", int(p/100))
 		},
 		"displaydate": func(t time.Time) string {
-			return t.Format("2006-01-02 15:04 PM")
+			return t.Format("2006-01-02 03:04 PM")
 		},
 		"duration": func(d int64) string {
 			return fmt.Sprintf("%02d:%02d", (d/1000)/60, (d/1000)%60)
@@ -70,8 +70,16 @@ func displayError(w http.ResponseWriter, message string, statusCode int) {
 	w.WriteHeader(statusCode)
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	td := getBaseTemplateData()
-	td.ErrorMessage = message
+	td.Message = message
 	htmlTemplates["error.tmpl"].ExecuteTemplate(w, "base.tmpl", td)
+}
+
+func displayAjaxMessage(w http.ResponseWriter, message string, statusCode int) {
+	w.WriteHeader(statusCode)
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	td := getBaseTemplateData()
+	td.Message = message
+	htmlTemplates["ajax_message.tmpl"].ExecuteTemplate(w, "blank.tmpl", td)
 }
 
 func StartWeb(config *Config) error {
@@ -89,6 +97,13 @@ func StartWeb(config *Config) error {
 	if err != nil {
 		return err
 	}
+
+	// init import queue
+	fflogsImportQueue, err := NewFFLogsImportQueue(config, db)
+	if err != nil {
+		return err
+	}
+	go fflogsImportQueue.Start()
 
 	http.Handle("/static/", http.StripPrefix("/static/", http.FileServer(http.Dir("web/static"))))
 
@@ -113,14 +128,12 @@ func StartWeb(config *Config) error {
 				return
 			}
 		}
-
 		htmlTemplates["search.tmpl"].ExecuteTemplate(w, "blank.tmpl", td)
 	})
 
 	http.HandleFunc("/c/", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
 		td := getBaseTemplateData()
-
 		pathes := strings.Split(r.URL.Path, "/")
 		if len(pathes) < 3 {
 			displayError(w, "character id is required", 400)
@@ -138,6 +151,27 @@ func StartWeb(config *Config) error {
 		}
 		td.Characters = []Character{character}
 		htmlTemplates["character.tmpl"].ExecuteTemplate(w, "base.tmpl", td)
+	})
+
+	http.HandleFunc("/i/", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/html; charset=utf-8")
+		reportID := FFLogReportURLToReportID(r.URL.Query().Get("r"))
+		if reportID == "" {
+			displayAjaxMessage(w, "FFLogs report URL not provided or invalid.", 400)
+			return
+		}
+		if db.HasFFLogsReport(reportID) {
+			displayAjaxMessage(w, fmt.Sprintf("FFLogs report %s has already been processed.", reportID), 400)
+			return
+		}
+		if err := fflogsImportQueue.Add(reportID); err != nil {
+			if err == ErrAlreadyInQueue {
+				displayAjaxMessage(w, fmt.Sprintf("FFLogs report %s is already being processed.", reportID), 400)
+				return
+			}
+			displayAjaxMessage(w, fmt.Sprintf("An Error Occured: %s", err.Error()), 500)
+		}
+		displayAjaxMessage(w, "Your report is being processed.", 200)
 	})
 
 	return http.ListenAndServe(":8081", nil)

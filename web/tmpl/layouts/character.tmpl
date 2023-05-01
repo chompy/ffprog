@@ -10,16 +10,18 @@
 <h3 class="character-server">{{ (index .Characters 0).Server }}</h3>
 
 {{ range $prog := (index .Characters 0).Progression }}
+{{ if $prog.EncounterInfo.IsDisplayable }}
 <div class="fight-info">
     <span class="zone">{{$prog.EncounterInfo.ZoneName }}</span>
     {{ if $prog.HasKill }}
-        <span class="prog cleared" title="Cleared. Fastest clear time: {{duration $prog.BestEncounterTime}} on {{displaydate $prog.LastProgressionTime}}.">&#x2713;</span>
+        <span class="prog cleared" title="Cleared. Fastest Clear Time: {{duration $prog.BestEncounterTime}} on {{displaydate $prog.LastProgressionTime}}.">&#x2713;</span>
         <span class="last-update">Cleared {{displaydate $prog.FirstKillTime }}</span>
     {{ else }}
         <span class="prog" title="Longest encounter time: {{duration $prog.BestEncounterTime}}.">P{{ $prog.BestPhase }} {{percent $prog.BestPhasePercentage }}</span>
         <span class="last-update">Last Update {{displaydate $prog.LastProgressionTime }}</span>
     {{ end }}
 </div>
+{{ end }}
 {{ end }}
 
 {{ end }}

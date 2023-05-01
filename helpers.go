@@ -3,12 +3,15 @@ package main
 import (
 	"crypto/sha256"
 	"fmt"
+	"regexp"
 	"strings"
 
 	"github.com/RyuaNerin/go-fflogs/structure"
 	"github.com/martinlindhe/base36"
 	gonanoid "github.com/matoous/go-nanoid"
 )
+
+var fflogReportUrlRegex = regexp.MustCompile(`https?\:\/\/www\.fflogs\.com\/reports\/([A-Za-z1-9]*)`)
 
 var JobsMap = map[string]string{
 	"whitemage":   "whm",
@@ -31,6 +34,14 @@ var JobsMap = map[string]string{
 	"reaper":      "rpr",
 }
 
+func GenerateUUID() string {
+	id, err := gonanoid.Nanoid()
+	if err != nil {
+		panic(err)
+	}
+	return id
+}
+
 func JobNameToJobAbbr(name string) string {
 	return JobsMap[strings.ToLower(name)]
 }
@@ -45,10 +56,14 @@ func FFLogsCharacterHash(fightsFriendly *structure.FightsFriendly) string {
 	return base36.EncodeBytes(hashBytes[:])
 }
 
-func GenerateUUID() string {
-	id, err := gonanoid.Nanoid()
-	if err != nil {
-		panic(err)
+func FFLogReportURLToReportID(reportURL string) string {
+	results := fflogReportUrlRegex.FindAllStringSubmatch(reportURL, -1)
+	if len(results) == 0 || len(results[0]) < 2 {
+		return reportURL
 	}
-	return id
+	return results[0][1]
+}
+
+func IsFFLogsEncounterValid(fflFight *structure.FightsFight) bool {
+	return fflFight.Difficulty != nil && *fflFight.Difficulty != 0
 }

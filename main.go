@@ -36,7 +36,7 @@ func main() {
 			if len(os.Args) < 3 {
 				panic(ErrMissingArgument)
 			}
-			reportId := os.Args[2]
+			reportID := FFLogReportURLToReportID(os.Args[2])
 
 			ffl, err := NewFFLogsHandler(&config)
 			if err != nil {
@@ -48,12 +48,16 @@ func main() {
 				panic(err)
 			}
 
-			reportFights, err := ffl.FetchReportFights(reportId)
+			if db.HasFFLogsReport(reportID) {
+				panic(ErrReportAlreadyImported)
+			}
+
+			reportFights, err := ffl.FetchReportFights(reportID)
 			if err != nil {
 				panic(err)
 			}
 
-			if err := db.HandleFFLogsReportFights(reportFights); err != nil {
+			if err := db.HandleFFLogsReportFights(reportID, reportFights); err != nil {
 				panic(err)
 			}
 			return

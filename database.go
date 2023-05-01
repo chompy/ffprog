@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/RyuaNerin/go-fflogs/structure"
@@ -11,28 +12,32 @@ import (
 
 type EncounterInfo struct {
 	gorm.Model
-	CompareHash string
-	BossID      int64
-	ZoneID      int64
-	ZoneName    string
-	Difficulty  int64
+	CompareHash string `json:"-"`
+	BossID      int64  `json:"-"`
+	ZoneID      int64  `json:"zone_id"`
+	ZoneName    string `json:"zone_name"`
+	Difficulty  int64  `json:"-"`
+}
+
+func (e EncounterInfo) IsDisplayable() bool {
+	return strings.Contains(e.ZoneName, "Savage") || strings.Contains(e.ZoneName, "Ultimate") || strings.Contains(e.ZoneName, "Extreme")
 }
 
 type CharacterProgression struct {
 	gorm.Model
-	CharacterID            uint
-	EncounterInfoID        uint
-	EncounterInfo          EncounterInfo
-	GameVersion            int64
-	FirstKillTime          time.Time // first time character killed the encounter
-	LastProgressionTime    time.Time // last time progress was made, includes getting a faster clear time
-	BestFightPercentage    int64
-	BestPhase              int64
-	BestPhasePercentage    int64
-	BestEncounterTime      int64
-	HasKill                bool
-	HasEcho                bool
-	HasStandardComposition bool
+	CharacterID            uint          `json:"-"`
+	EncounterInfoID        uint          `json:"-"`
+	EncounterInfo          EncounterInfo `json:"encounter"`
+	GameVersion            int64         `json:"game_version"`
+	FirstKillTime          time.Time     `json:"first_kill_time"`       // first time character killed the encounter
+	LastProgressionTime    time.Time     `json:"last_progression_time"` // last time progress was made, includes getting a faster clear time
+	BestFightPercentage    int64         `json:"best_fight_percentage"`
+	BestPhase              int64         `json:"best_phase"`
+	BestPhasePercentage    int64         `json:"best_phase_percentage"`
+	BestEncounterTime      int64         `json:"best_encounter_duration"`
+	HasKill                bool          `json:"has_kill"`
+	HasEcho                bool          `json:"has_echo"`
+	HasStandardComposition bool          `json:"has_standard_composition"`
 }
 
 func (cp CharacterProgression) IsImprovement(fflFight *structure.FightsFight) bool {
@@ -48,12 +53,16 @@ func (cp CharacterProgression) IsImprovement(fflFight *structure.FightsFight) bo
 
 type Character struct {
 	gorm.Model
-	UUID        string
-	CompareHash string
-	Name        string
-	Server      string
-	Job         string
-	Progression []CharacterProgression
+	UUID        string                 `json:"uuid"`
+	CompareHash string                 `json:"-"`
+	Name        string                 `json:"name"`
+	Server      string                 `json:"server"`
+	Progression []CharacterProgression `json:"progression"`
+}
+
+type FFLogsReportImportHistory struct {
+	gorm.Model
+	ReportID string
 }
 
 type DatabaseHandler struct {
@@ -72,6 +81,9 @@ func NewDatabaserHandler(config *Config) (*DatabaseHandler, error) {
 		return nil, err
 	}
 	if err := db.AutoMigrate(&Character{}); err != nil {
+		return nil, err
+	}
+	if err := db.AutoMigrate(&FFLogsReportImportHistory{}); err != nil {
 		return nil, err
 	}
 	return &DatabaseHandler{
@@ -97,8 +109,17 @@ func (d DatabaseHandler) FetchCharacterFromCompareHash(hash string) (Character, 
 	return character, tx.Error
 }
 
+func (d DatabaseHandler) HasFFLogsReport(reportID string) bool {
+	var count int64
+	d.Conn.Model(&FFLogsReportImportHistory{}).Where("report_id = ?", reportID).Count(&count)
+	return count > 0
+}
+
 func (d DatabaseHandler) syncEncounterInfoFromFFLogsReportFights(fflReportFights *structure.Fights) error {
 	for _, fflFight := range fflReportFights.Fights {
+		if !IsFFLogsEncounterValid(&fflFight) {
+			continue
+		}
 		compareHash := FFLogsEncounterInfoHash(&fflFight)
 		encounterInfo, err := d.FetchEncounterInfoFromCompareHash(compareHash)
 		if err != nil {
@@ -135,7 +156,6 @@ func (d DatabaseHandler) syncCharacterFromFFLogsReportFights(reportFights *struc
 			// create if not exist
 			character.Name = fflCharacter.Name
 			character.Server = fflCharacter.Server
-			character.Job = JobNameToJobAbbr(fflCharacter.Type)
 			character.CompareHash = compareHash
 			character.UUID = GenerateUUID()
 			if tx := d.Conn.Create(&character); tx.Error != nil {
@@ -146,8 +166,11 @@ func (d DatabaseHandler) syncCharacterFromFFLogsReportFights(reportFights *struc
 	return nil
 }
 
-func (d DatabaseHandler) syncCharacterProgressionFromFFLogsReportFights(reportFights *structure.Fights) error {
+func (d DatabaseHandler) syncCharacterProgressionFromFFLogsReportFights(reportID string, reportFights *structure.Fights) error {
 	for _, fflFight := range reportFights.Fights {
+		if !IsFFLogsEncounterValid(&fflFight) {
+			continue
+		}
 		encounter, err := d.FetchEncounterInfoFromCompareHash(FFLogsEncounterInfoHash(&fflFight))
 		if err != nil {
 			return err
@@ -207,15 +230,19 @@ func (d DatabaseHandler) syncCharacterProgressionFromFFLogsReportFights(reportFi
 	return nil
 }
 
-func (d DatabaseHandler) HandleFFLogsReportFights(reportFights *structure.Fights) error {
+func (d DatabaseHandler) HandleFFLogsReportFights(reportID string, reportFights *structure.Fights) error {
 	if err := d.syncEncounterInfoFromFFLogsReportFights(reportFights); err != nil {
 		return err
 	}
 	if err := d.syncCharacterFromFFLogsReportFights(reportFights); err != nil {
 		return err
 	}
-	if err := d.syncCharacterProgressionFromFFLogsReportFights(reportFights); err != nil {
+	if err := d.syncCharacterProgressionFromFFLogsReportFights(reportID, reportFights); err != nil {
 		return err
+	}
+	importHistory := FFLogsReportImportHistory{ReportID: reportID}
+	if tx := d.Conn.Save(&importHistory); tx.Error != nil {
+		return tx.Error
 	}
 	return nil
 }
