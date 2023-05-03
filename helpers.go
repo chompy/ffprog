@@ -65,5 +65,5 @@ func FFLogReportURLToReportID(reportURL string) string {
 }
 
 func IsFFLogsEncounterValid(fflFight *structure.FightsFight) bool {
-	return fflFight.Difficulty != nil && *fflFight.Difficulty != 0
+	return fflFight.HasEcho != nil && !*fflFight.HasEcho && fflFight.Difficulty != nil && *fflFight.Difficulty != 0 && fflFight.BossPercentage != nil && fflFight.FightPercentage != nil && fflFight.Kill != nil
 }

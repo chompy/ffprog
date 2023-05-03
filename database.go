@@ -5,7 +5,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/RyuaNerin/go-fflogs/structure"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 )
@@ -25,44 +24,32 @@ func (e EncounterInfo) IsDisplayable() bool {
 
 type CharacterProgression struct {
 	gorm.Model
-	CharacterID            uint          `json:"-"`
-	EncounterInfoID        uint          `json:"-"`
-	EncounterInfo          EncounterInfo `json:"encounter"`
-	GameVersion            int64         `json:"game_version"`
-	FirstKillTime          time.Time     `json:"first_kill_time"`       // first time character killed the encounter
-	LastProgressionTime    time.Time     `json:"last_progression_time"` // last time progress was made, includes getting a faster clear time
-	BestFightPercentage    int64         `json:"best_fight_percentage"`
-	BestPhase              int64         `json:"best_phase"`
-	BestPhasePercentage    int64         `json:"best_phase_percentage"`
-	BestEncounterTime      int64         `json:"best_encounter_duration"`
-	HasKill                bool          `json:"has_kill"`
-	HasEcho                bool          `json:"has_echo"`
-	HasStandardComposition bool          `json:"has_standard_composition"`
+	CharacterID           uint          `json:"-"`
+	ReportID              string        `json:"report_id"`
+	EncounterInfoID       uint          `json:"-"`
+	EncounterInfo         EncounterInfo `json:"encounter"`
+	GameVersion           int64         `json:"game_version"`
+	Time                  time.Time     `json:"time"` // end time from fflogs
+	FightPercentage       int64         `json:"fight_percentage"`
+	Phase                 int64         `json:"phase"`
+	PhasePercentage       int64         `json:"phase_percentage"`
+	Duration              int64         `json:"duration"`
+	IsKill                bool          `json:"is_kill"`
+	IsStandardComposition bool          `json:"is_standard_composition"`
+	HasEcho               bool          `json:"has_echo"`
+	Job                   string        `json:"job"`
 }
 
-func (cp CharacterProgression) IsImprovement(fflFight *structure.FightsFight) bool {
-	// no record previously stored
-	if cp.ID == 0 || fflFight.FightPercentage == nil || fflFight.Kill == nil {
-		return true
-	}
-	encounterTime := fflFight.EndTime - fflFight.StartTime
-	// if player is still progressing then an improvement is when the fight percent value is lower than the best fight percent
-	// if player has a win then an improvement is the best clear time
-	return (!cp.HasKill && !*fflFight.Kill && *fflFight.FightPercentage < cp.BestFightPercentage) || (*fflFight.Kill && (!cp.HasKill || encounterTime < cp.BestEncounterTime))
+func (prevProg CharacterProgression) IsImprovement(newProg CharacterProgression) bool {
+	return (!prevProg.IsKill && newProg.IsKill) || (prevProg.IsKill && newProg.IsKill && newProg.Duration < prevProg.Duration) || (!prevProg.IsKill && !newProg.IsKill && newProg.FightPercentage < prevProg.FightPercentage)
 }
 
 type Character struct {
 	gorm.Model
-	UUID        string                 `json:"uuid"`
-	CompareHash string                 `json:"-"`
-	Name        string                 `json:"name"`
-	Server      string                 `json:"server"`
-	Progression []CharacterProgression `json:"progression"`
-}
-
-type FFLogsReportImportHistory struct {
-	gorm.Model
-	ReportID string
+	UUID        string `json:"uuid"`
+	CompareHash string `json:"-"`
+	Name        string `json:"name"`
+	Server      string `json:"server"`
 }
 
 type DatabaseHandler struct {
@@ -83,9 +70,6 @@ func NewDatabaserHandler(config *Config) (*DatabaseHandler, error) {
 	if err := db.AutoMigrate(&Character{}); err != nil {
 		return nil, err
 	}
-	if err := db.AutoMigrate(&FFLogsReportImportHistory{}); err != nil {
-		return nil, err
-	}
 	return &DatabaseHandler{
 		Conn: db,
 	}, nil
@@ -99,8 +83,38 @@ func (d DatabaseHandler) FetchEncounterInfoFromCompareHash(hash string) (Encount
 
 func (d DatabaseHandler) FetchCharacterFromUUID(uuid string) (Character, error) {
 	character := Character{}
-	tx := d.Conn.Preload("Progression").Preload("Progression.EncounterInfo").First(&character, "uuid = ?", uuid)
+	tx := d.Conn.First(&character, "uuid = ?", uuid)
 	return character, tx.Error
+}
+
+func (d DatabaseHandler) FetchBestCharacterProgressionForEncounter(characterID uint, encounterID uint) (CharacterProgression, error) {
+	results := CharacterProgression{}
+	tx := d.Conn.Where("character_id = ? AND encounter_info_id = ?", characterID, encounterID).Order("is_kill desc, fight_percentage asc, time desc").Preload("EncounterInfo").First(&results)
+	return results, tx.Error
+}
+
+func (d DatabaseHandler) FetchBestCharacterProgressions(characterID uint) ([]CharacterProgression, error) {
+	results := make([]CharacterProgression, 0)
+	tx := d.Conn.Where("character_id = ?", characterID).Order("is_kill desc, fight_percentage asc, time desc").Preload("EncounterInfo").Find(&results)
+	if tx.Error != nil {
+		return results, tx.Error
+	}
+	// TODO using DISTINCT query would be better but it wasn't working
+	out := make([]CharacterProgression, 0)
+	for _, resultItem := range results {
+		hasUniqueEncounter := false
+		for _, outItem := range out {
+			if resultItem.EncounterInfoID == outItem.EncounterInfoID {
+				hasUniqueEncounter = true
+				break
+			}
+		}
+		if !hasUniqueEncounter {
+			out = append(out, resultItem)
+		}
+
+	}
+	return out, nil
 }
 
 func (d DatabaseHandler) FetchCharacterFromCompareHash(hash string) (Character, error) {
@@ -109,140 +123,100 @@ func (d DatabaseHandler) FetchCharacterFromCompareHash(hash string) (Character, 
 	return character, tx.Error
 }
 
+func (d DatabaseHandler) FetchCharacterProgressionFromReportID(reportID string, characterID uint, encounterInfoID uint) (CharacterProgression, error) {
+	characterProgression := CharacterProgression{}
+	tx := d.Conn.First(&characterProgression, "report_id = ? AND character_id = ? AND encounter_info_id = ?", reportID, characterID, encounterInfoID)
+	return characterProgression, tx.Error
+}
+
 func (d DatabaseHandler) HasFFLogsReport(reportID string) bool {
 	var count int64
-	d.Conn.Model(&FFLogsReportImportHistory{}).Where("report_id = ?", reportID).Count(&count)
+	d.Conn.Model(&CharacterProgression{}).Where("report_id = ?", reportID).Count(&count)
 	return count > 0
 }
 
-func (d DatabaseHandler) syncEncounterInfoFromFFLogsReportFights(fflReportFights *structure.Fights) error {
-	for _, fflFight := range fflReportFights.Fights {
-		if !IsFFLogsEncounterValid(&fflFight) {
-			continue
-		}
-		compareHash := FFLogsEncounterInfoHash(&fflFight)
-		encounterInfo, err := d.FetchEncounterInfoFromCompareHash(compareHash)
-		if err != nil {
-			if err != gorm.ErrRecordNotFound {
-				return err
-			}
-			// create if not exist
-			encounterInfo.BossID = fflFight.Boss
-			encounterInfo.ZoneID = fflFight.ZoneID
-			encounterInfo.ZoneName = fflFight.ZoneName
-			if fflFight.Difficulty != nil {
-				encounterInfo.Difficulty = *fflFight.Difficulty
-			}
-			encounterInfo.CompareHash = compareHash
-			if tx := d.Conn.Create(&encounterInfo); tx.Error != nil {
-				return tx.Error
-			}
-		}
+func (d DatabaseHandler) syncCharacterFromFFLogCharacterReport(characterReport *FFLogCharacterReport) error {
+	character, err := d.FetchCharacterFromCompareHash(characterReport.Character.CompareHash)
+	if err != nil && err != gorm.ErrRecordNotFound {
+		return err
 	}
+	if character.UUID == "" {
+		character.UUID = GenerateUUID()
+	}
+	character.CompareHash = characterReport.Character.CompareHash
+	character.Name = characterReport.Character.Name
+	character.Server = characterReport.Character.Server
+	if tx := d.Conn.Save(&character); tx.Error != nil {
+		return tx.Error
+	}
+	characterReport.Character = character
 	return nil
 }
 
-func (d DatabaseHandler) syncCharacterFromFFLogsReportFights(reportFights *structure.Fights) error {
-	for _, fflCharacter := range reportFights.Friendlies {
-		if fflCharacter.Name == "" || fflCharacter.Server == "" || fflCharacter.Type == "" {
-			continue
-		}
-		compareHash := FFLogsCharacterHash(&fflCharacter)
-		character, err := d.FetchCharacterFromCompareHash(compareHash)
-		if err != nil {
-			if err != gorm.ErrRecordNotFound {
-				return err
-			}
-			// create if not exist
-			character.Name = fflCharacter.Name
-			character.Server = fflCharacter.Server
-			character.CompareHash = compareHash
-			character.UUID = GenerateUUID()
-			if tx := d.Conn.Create(&character); tx.Error != nil {
-				return tx.Error
-			}
-		}
-	}
-	return nil
-}
-
-func (d DatabaseHandler) syncCharacterProgressionFromFFLogsReportFights(reportID string, reportFights *structure.Fights) error {
-	for _, fflFight := range reportFights.Fights {
-		if !IsFFLogsEncounterValid(&fflFight) {
-			continue
-		}
-		encounter, err := d.FetchEncounterInfoFromCompareHash(FFLogsEncounterInfoHash(&fflFight))
-		if err != nil {
+func (d DatabaseHandler) syncEncounterInfoFromFFLogCharacterReport(characterReport *FFLogCharacterReport) error {
+	for i, characterProgression := range characterReport.Progression {
+		encounterInfo, err := d.FetchEncounterInfoFromCompareHash(characterProgression.EncounterInfo.CompareHash)
+		if err != nil && err != gorm.ErrRecordNotFound {
 			return err
 		}
-		for _, fflCharacter := range reportFights.Friendlies {
-			character, err := d.FetchCharacterFromCompareHash(FFLogsCharacterHash(&fflCharacter))
-			if err != nil {
-				if err == gorm.ErrRecordNotFound {
-					continue
-				}
-				return err
-			}
-			characterProgression := CharacterProgression{}
-			tx := d.Conn.First(&characterProgression, "encounter_info_id = ? AND character_id = ?", encounter.ID, character.ID)
-			if tx.Error != nil && tx.Error != gorm.ErrRecordNotFound {
-				return tx.Error
-			}
-			if characterProgression.IsImprovement(&fflFight) {
-				encounterTime := fflFight.EndTime - fflFight.StartTime
-				endTime := time.UnixMilli(reportFights.Start + fflFight.EndTime)
-				characterProgression.BestEncounterTime = encounterTime
-				characterProgression.BestFightPercentage = 10000
-				if fflFight.FightPercentage != nil {
-					characterProgression.BestFightPercentage = *fflFight.FightPercentage
-				}
-				characterProgression.BestPhasePercentage = 10000
-				if fflFight.BossPercentage != nil {
-					characterProgression.BestPhasePercentage = *fflFight.BossPercentage
-				}
-				characterProgression.BestPhase = 0
-				if fflFight.LastPhaseForPercentageDisplay != nil {
-					characterProgression.BestPhase = *fflFight.LastPhaseForPercentageDisplay
-				}
-				characterProgression.GameVersion = reportFights.GameVersion
-				if fflFight.Kill != nil {
-					if *fflFight.Kill && (!characterProgression.HasKill || characterProgression.FirstKillTime.After(endTime)) {
-						characterProgression.FirstKillTime = endTime
-						characterProgression.HasKill = true
-					}
-				}
-				if fflFight.HasEcho != nil {
-					characterProgression.HasEcho = *fflFight.HasEcho
-				}
-				if fflFight.StandardComposition != nil {
-					characterProgression.HasStandardComposition = *fflFight.StandardComposition
-				}
-				characterProgression.CharacterID = character.ID
-				characterProgression.EncounterInfoID = encounter.ID
-				characterProgression.LastProgressionTime = endTime
-				if tx := d.Conn.Save(&characterProgression); tx.Error != nil {
-					return tx.Error
-				}
-			}
-
+		encounterInfo.CompareHash = characterProgression.EncounterInfo.CompareHash
+		encounterInfo.ZoneID = characterProgression.EncounterInfo.ZoneID
+		encounterInfo.ZoneName = characterProgression.EncounterInfo.ZoneName
+		encounterInfo.Difficulty = characterProgression.EncounterInfo.Difficulty
+		encounterInfo.BossID = characterProgression.EncounterInfo.BossID
+		if tx := d.Conn.Save(&encounterInfo); tx.Error != nil {
+			return tx.Error
 		}
+		characterReport.Progression[i].EncounterInfo = encounterInfo
 	}
 	return nil
 }
 
-func (d DatabaseHandler) HandleFFLogsReportFights(reportID string, reportFights *structure.Fights) error {
-	if err := d.syncEncounterInfoFromFFLogsReportFights(reportFights); err != nil {
+func (d DatabaseHandler) syncCharacterProgressionsFromFFLogCharacterReport(characterReport *FFLogCharacterReport) error {
+	for i, characterProgression := range characterReport.Progression {
+		// ensure actual progress was made
+		bestCharacterProgressionDB, err := d.FetchBestCharacterProgressionForEncounter(characterReport.Character.ID, characterProgression.EncounterInfo.ID)
+		if err != nil && err != gorm.ErrRecordNotFound {
+			return err
+		}
+		if err != gorm.ErrRecordNotFound && !bestCharacterProgressionDB.IsImprovement(characterProgression) {
+			continue
+		}
+		// determine if this report needs update
+		characterProgressionDB, err := d.FetchCharacterProgressionFromReportID(characterReport.ReportID, characterReport.Character.ID, characterProgression.EncounterInfo.ID)
+		if err != nil && err != gorm.ErrRecordNotFound {
+			return err
+		}
+		characterProgressionDB.ReportID = characterReport.ReportID
+		characterProgressionDB.CharacterID = characterReport.Character.ID
+		characterProgressionDB.EncounterInfoID = characterProgression.EncounterInfo.ID
+		characterProgressionDB.GameVersion = characterProgression.GameVersion
+		characterProgressionDB.FightPercentage = characterProgression.FightPercentage
+		characterProgressionDB.Phase = characterProgression.Phase
+		characterProgressionDB.PhasePercentage = characterProgression.PhasePercentage
+		characterProgressionDB.IsKill = characterProgression.IsKill
+		characterProgressionDB.IsStandardComposition = characterProgression.IsStandardComposition
+		characterProgressionDB.HasEcho = characterProgression.HasEcho
+		characterProgressionDB.Time = characterProgression.Time
+		characterProgressionDB.Duration = characterProgression.Duration
+		characterProgressionDB.Job = characterProgression.Job
+		if tx := d.Conn.Save(&characterProgressionDB); tx.Error != nil {
+			return tx.Error
+		}
+		characterReport.Progression[i] = characterProgressionDB
+	}
+	return nil
+}
+
+func (d DatabaseHandler) HandleFFLogCharacterReport(characterReport FFLogCharacterReport) error {
+	if err := d.syncCharacterFromFFLogCharacterReport(&characterReport); err != nil {
 		return err
 	}
-	if err := d.syncCharacterFromFFLogsReportFights(reportFights); err != nil {
+	if err := d.syncEncounterInfoFromFFLogCharacterReport(&characterReport); err != nil {
 		return err
 	}
-	if err := d.syncCharacterProgressionFromFFLogsReportFights(reportID, reportFights); err != nil {
+	if err := d.syncCharacterProgressionsFromFFLogCharacterReport(&characterReport); err != nil {
 		return err
-	}
-	importHistory := FFLogsReportImportHistory{ReportID: reportID}
-	if tx := d.Conn.Save(&importHistory); tx.Error != nil {
-		return tx.Error
 	}
 	return nil
 }

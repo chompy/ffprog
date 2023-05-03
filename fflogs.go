@@ -1,10 +1,7 @@
 package main
 
 import (
-	"context"
-
 	"github.com/RyuaNerin/go-fflogs"
-	"github.com/RyuaNerin/go-fflogs/structure"
 )
 
 type FFLogsHandler struct {
@@ -24,11 +21,4 @@ func NewFFLogsHandler(config *Config) (*FFLogsHandler, error) {
 	return &FFLogsHandler{
 		client: client,
 	}, nil
-}
-
-func (ffl FFLogsHandler) FetchReportFights(code string) (*structure.Fights, error) {
-	reportOpts := fflogs.ReportFightsOptions{
-		Code: code,
-	}
-	return ffl.client.ReportFights(context.Background(), &reportOpts)
 }

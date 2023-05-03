@@ -49,15 +49,18 @@ func (f *FFLogsImportQueue) Start() {
 		reportID := ""
 		reportID, f.reports = f.reports[0], f.reports[1:]
 		log.Printf("Processing FFLogs report %s.\n", reportID)
-		reportFights, err := f.fflog.FetchReportFights(reportID)
+		characterReports, err := f.fflog.FetchCharacterReports(reportID)
 		if err != nil {
 			log.Printf("Error importing FFLogs report %s: %s\n", reportID, err.Error())
 			f.lock.Unlock()
 			continue
 		}
-		if err := f.db.HandleFFLogsReportFights(reportID, reportFights); err != nil {
-			log.Printf("Error importing FFLogs report %s: %s\n", reportID, err.Error())
+		for _, characterReport := range characterReports {
+			if err := f.db.HandleFFLogCharacterReport(characterReport); err != nil {
+				log.Printf("Error importing FFLogs report %s: %s\n", reportID, err.Error())
+			}
 		}
+		log.Printf("Finished processing FFLogs report %s.\n", reportID)
 		f.lock.Unlock()
 	}
 }

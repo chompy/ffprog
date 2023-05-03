@@ -16,10 +16,11 @@ var htmlTemplates map[string]*template.Template
 
 // templateData Struct containing data to be made available to html template
 type templateData struct {
-	AppName       string
-	VersionString string
-	Characters    []Character
-	Message       string
+	AppName              string
+	VersionString        string
+	Characters           []Character
+	CharacterProgression []CharacterProgression
+	Message              string
 }
 
 func getTemplates() (map[string]*template.Template, error) {
@@ -38,7 +39,7 @@ func getTemplates() (map[string]*template.Template, error) {
 	// template funcs
 	funcMap := template.FuncMap{
 		"percent": func(p int64) string {
-			return fmt.Sprintf("%d%%", int(p/100))
+			return fmt.Sprintf("%.2f%%", float32(p)/100.0)
 		},
 		"displaydate": func(t time.Time) string {
 			return t.Format("2006-01-02 03:04 PM")
@@ -150,6 +151,12 @@ func StartWeb(config *Config) error {
 			return
 		}
 		td.Characters = []Character{character}
+		characterProgress, err := db.FetchBestCharacterProgressions(character.ID)
+		if err != nil {
+			displayError(w, err.Error(), 500)
+			return
+		}
+		td.CharacterProgression = characterProgress
 		htmlTemplates["character.tmpl"].ExecuteTemplate(w, "base.tmpl", td)
 	})
 
