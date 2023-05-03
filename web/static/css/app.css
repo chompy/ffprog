@@ -56,25 +56,31 @@ h1, h2, h3 {
 #body .about h2 {
     color: #05445e;
 }
-#body input {
+#body input, #body button {
     width: 100%;
-    margin-top: 8px;
 }
 #body .import, #body .search {
     margin-top: 10px;
     margin-bottom: 20px;
     text-align: center;
 }
-#body #search-load {
+#body #search-load, #body #import-load {
     display: none;
 }
-#body #search-load.htmx-request {
+#body #search-load.htmx-request, #body #import-load.htmx-request {
     display: block;
 }
-
-#body #search-results {
+#body #search-results, #body #import-results {
     margin-top: 8px;
     text-align: left;
+}
+#body .import h3, #body .search h3 {
+    margin-bottom: 7px;
+}
+#body .import button {
+    height: 36px;
+    margin-left: -4px;
+    background-color: #189ab4;
 }
 
 /** CHARACTER **/

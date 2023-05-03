@@ -20,6 +20,7 @@ type templateData struct {
 	VersionString        string
 	Characters           []Character
 	CharacterProgression []CharacterProgression
+	EncounterList        []EncounterInfo
 	Message              string
 }
 
@@ -117,7 +118,7 @@ func StartWeb(config *Config) error {
 	http.HandleFunc("/s", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
 		td := getBaseTemplateData()
-		name := r.URL.Query().Get("n")
+		name := strings.TrimSpace(r.URL.Query().Get("n"))
 		if name != "" {
 			td.Characters, err = db.FindCharacters(name)
 			if err != nil {
@@ -140,16 +141,22 @@ func StartWeb(config *Config) error {
 			displayError(w, "character id is required", 400)
 			return
 		}
-		uuid := pathes[2]
-		if uuid == "" {
+		uid := strings.ToLower(strings.TrimSpace(pathes[2]))
+		if uid == "" {
 			displayError(w, "character id is required", 400)
 			return
 		}
-		character, err := db.FetchCharacterFromUUID(uuid)
+		character, err := db.FetchCharacterFromUID(uid)
 		if err != nil {
 			displayError(w, err.Error(), 500)
 			return
 		}
+		encounterList, err := db.FetchEncounterList()
+		if err != nil {
+			displayError(w, err.Error(), 500)
+			return
+		}
+		td.EncounterList = encounterList
 		td.Characters = []Character{character}
 		characterProgress, err := db.FetchBestCharacterProgressions(character.ID)
 		if err != nil {

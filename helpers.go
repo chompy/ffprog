@@ -3,12 +3,12 @@ package main
 import (
 	"crypto/sha256"
 	"fmt"
+	"math/rand"
 	"regexp"
 	"strings"
 
 	"github.com/RyuaNerin/go-fflogs/structure"
 	"github.com/martinlindhe/base36"
-	gonanoid "github.com/matoous/go-nanoid"
 )
 
 var fflogReportUrlRegex = regexp.MustCompile(`https?\:\/\/www\.fflogs\.com\/reports\/([A-Za-z1-9]*)`)
@@ -34,12 +34,16 @@ var JobsMap = map[string]string{
 	"reaper":      "rpr",
 }
 
-func GenerateUUID() string {
-	id, err := gonanoid.Nanoid()
-	if err != nil {
-		panic(err)
+const uuidLength = 6
+
+var letterRunes = []rune("abcdefghijklmnopqrstuvwxyz1234567890")
+
+func GenerateUID() string {
+	b := make([]rune, uuidLength)
+	for i := range b {
+		b[i] = letterRunes[rand.Intn(len(letterRunes))]
 	}
-	return id
+	return string(b)
 }
 
 func JobNameToJobAbbr(name string) string {
@@ -59,7 +63,10 @@ func FFLogsCharacterHash(fightsFriendly *structure.FightsFriendly) string {
 func FFLogReportURLToReportID(reportURL string) string {
 	results := fflogReportUrlRegex.FindAllStringSubmatch(reportURL, -1)
 	if len(results) == 0 || len(results[0]) < 2 {
-		return reportURL
+		if len(reportURL) == 16 {
+			return reportURL
+		}
+		return ""
 	}
 	return results[0][1]
 }

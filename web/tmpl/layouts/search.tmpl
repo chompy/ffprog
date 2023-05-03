@@ -6,7 +6,7 @@
 
     {{ range $char := .Characters }}
         <div class="character">
-            <a href="/c/{{ $char.UUID }}">{{ $char.Name }} @ {{ $char.Server }}</a>
+            <a href="/c/{{ $char.UID }}">{{ $char.Name }} @ {{ $char.Server }}</a>
         </div>
     {{ end }}
     

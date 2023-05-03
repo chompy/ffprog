@@ -13,11 +13,19 @@
 
 <div class="forms">
 
-    <div class="import pure-form">
+    <div class="import">
         <h3>Import progression data via FFLogs report...</h3>
-        <input type="text" id="f-import" placeholder="FFLogs report URL..." />
+        <form class="pure-form pure-g" hx-get="/i" hx-target="#import-results" hx-indicator="#import-results">
+            <div class="pure-u-4-5">
+                <input name="r" type="text" id="f-import" placeholder="FFLogs report URL..." />
+            </div>
+            <div class="pure-u-1-5">
+                <button type="submit" class="pure-button pure-button-primary">Import</button>
+            </div>
+        </form>
+        <div id="import-load" class="loader"></div>
         <div id="import-results">
-            <em></em>
+            <em>Enter FFLogs report URL above!</em>
         </div>
     </div>
     <div class="search pure-form">

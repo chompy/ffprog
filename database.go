@@ -46,7 +46,7 @@ func (prevProg CharacterProgression) IsImprovement(newProg CharacterProgression)
 
 type Character struct {
 	gorm.Model
-	UUID        string `json:"uuid"`
+	UID         string `json:"uid"`
 	CompareHash string `json:"-"`
 	Name        string `json:"name"`
 	Server      string `json:"server"`
@@ -81,9 +81,9 @@ func (d DatabaseHandler) FetchEncounterInfoFromCompareHash(hash string) (Encount
 	return encounterInfo, tx.Error
 }
 
-func (d DatabaseHandler) FetchCharacterFromUUID(uuid string) (Character, error) {
+func (d DatabaseHandler) FetchCharacterFromUID(uid string) (Character, error) {
 	character := Character{}
-	tx := d.Conn.First(&character, "uuid = ?", uuid)
+	tx := d.Conn.First(&character, "uid = ?", uid)
 	return character, tx.Error
 }
 
@@ -129,6 +129,12 @@ func (d DatabaseHandler) FetchCharacterProgressionFromReportID(reportID string, 
 	return characterProgression, tx.Error
 }
 
+func (d DatabaseHandler) FetchEncounterList() ([]EncounterInfo, error) {
+	results := make([]EncounterInfo, 0)
+	tx := d.Conn.Where(`zone_name LIKE '%Savage%' OR zone_name LIKE '%Ultimate%' OR zone_name LIKE '%Extreme%'`).Order("boss_id desc, zone_name asc").Find(&results)
+	return results, tx.Error
+}
+
 func (d DatabaseHandler) HasFFLogsReport(reportID string) bool {
 	var count int64
 	d.Conn.Model(&CharacterProgression{}).Where("report_id = ?", reportID).Count(&count)
@@ -140,8 +146,19 @@ func (d DatabaseHandler) syncCharacterFromFFLogCharacterReport(characterReport *
 	if err != nil && err != gorm.ErrRecordNotFound {
 		return err
 	}
-	if character.UUID == "" {
-		character.UUID = GenerateUUID()
+	if character.UID == "" {
+		// generate uid, ensure no collision
+		character.UID = GenerateUID()
+		for {
+			_, err = d.FetchCharacterFromUID(character.UID)
+			if err != nil {
+				if err == gorm.ErrRecordNotFound {
+					break
+				}
+				return err
+			}
+			character.UID = GenerateUID()
+		}
 	}
 	character.CompareHash = characterReport.Character.CompareHash
 	character.Name = characterReport.Character.Name
