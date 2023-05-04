@@ -1,4 +1,4 @@
 {
-    "apiKey": "FFLOGS API KEY HERE",
+    "fflogsApiKey": "FFLOGS API KEY HERE",
     "databaseFile": "db.sqlite"
 }

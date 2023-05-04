@@ -6,9 +6,11 @@ import (
 )
 
 const configFilePath = "config.json"
+const appName = "FFProg"
+const appVersion = "0.0.1"
 
 type Config struct {
-	ApiKey       string `json:"apiKey"`
+	FFLogsApiKey string `json:"fflogsApiKey"`
 	DatabaseFile string `json:"databaseFile"`
 }
 

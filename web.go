@@ -62,8 +62,8 @@ func getTemplates() (map[string]*template.Template, error) {
 
 func getBaseTemplateData() templateData {
 	td := templateData{
-		VersionString: "0.01",
-		AppName:       "FFProg",
+		VersionString: appVersion,
+		AppName:       appName,
 	}
 	return td
 }

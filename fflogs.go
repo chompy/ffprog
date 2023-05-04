@@ -10,7 +10,7 @@ type FFLogsHandler struct {
 
 func NewFFLogsHandler(config *Config) (*FFLogsHandler, error) {
 	opts := fflogs.ClientOpt{
-		ApiKey: config.ApiKey,
+		ApiKey: config.FFLogsApiKey,
 	}
 
 	client, err := fflogs.NewClient(&opts)
