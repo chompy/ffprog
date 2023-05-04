@@ -11,10 +11,10 @@ import (
 
 type EncounterInfo struct {
 	gorm.Model
-	CompareHash string `json:"-"`
+	CompareHash string `json:"-" gorm:"index:idx_encounter_info_compare_hash,unique"`
 	BossID      int64  `json:"-"`
 	ZoneID      int64  `json:"zone_id"`
-	ZoneName    string `json:"zone_name"`
+	ZoneName    string `json:"zone_name" gorm:"index:idx_encounter_info_zone_name"`
 	Difficulty  int64  `json:"-"`
 }
 
@@ -24,9 +24,9 @@ func (e EncounterInfo) IsDisplayable() bool {
 
 type CharacterProgression struct {
 	gorm.Model
-	CharacterID           uint          `json:"-"`
-	ReportID              string        `json:"report_id"`
-	EncounterInfoID       uint          `json:"-"`
+	CharacterID           uint          `json:"-" gorm:"index:idx_character_progression_character_id;index:idx_character_progression_character_id_encounter_info_id;index:idx_character_progression_character_id_report_id_encounter_info_id"`
+	ReportID              string        `json:"report_id" gorm:"index:idx_character_progression_character_id_report_id_encounter_info_id"`
+	EncounterInfoID       uint          `json:"-" gorm:"index:idx_character_progression_character_id_encounter_info_id;index:idx_character_progression_character_id_report_id_encounter_info_id"`
 	EncounterInfo         EncounterInfo `json:"encounter"`
 	GameVersion           int64         `json:"game_version"`
 	Time                  time.Time     `json:"time"` // end time from fflogs
@@ -46,8 +46,8 @@ func (prevProg CharacterProgression) IsImprovement(newProg CharacterProgression)
 
 type Character struct {
 	gorm.Model
-	UID         string `json:"uid"`
-	CompareHash string `json:"-"`
+	UID         string `json:"uid" gorm:"index:idx_character_uid,unique"`
+	CompareHash string `json:"-" gorm:"index:idx_character_compare_hash,unique"`
 	Name        string `json:"name"`
 	Server      string `json:"server"`
 }
