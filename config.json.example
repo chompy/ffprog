@@ -1,4 +1,5 @@
 {
+    "http_port": 8081,
     "fflogs_api_key": "API_KEY_HERE",
     "database_file": "db.sqlite",
     "displayed_encounters": [

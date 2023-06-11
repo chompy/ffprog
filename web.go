@@ -229,5 +229,5 @@ func StartWeb(config *Config) error {
 		displayAjaxMessage(w, "Your report is being processed.", 200)
 	})
 
-	return http.ListenAndServe(":8081", mux)
+	return http.ListenAndServe(fmt.Sprintf(":%d", config.HTTPPort), mux)
 }

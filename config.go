@@ -19,6 +19,7 @@ type Config struct {
 	FFLogsApiKey        string                     `json:"fflogs_api_key"`
 	DatabaseFile        string                     `json:"database_file"`
 	DisplayedEncounters []DisplayEncounterCategory `json:"displayed_encounters"`
+	HTTPPort            int                        `json:"http_port"`
 }
 
 func LoadConfig() (Config, error) {
