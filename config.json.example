@@ -1,4 +1,46 @@
 {
-    "fflogsApiKey": "FFLOGS API KEY HERE",
-    "databaseFile": "db.sqlite"
+    "fflogs_api_key": "API_KEY_HERE",
+    "database_file": "db.sqlite",
+    "displayed_encounters": [
+        {
+            "category": "Ultimates",
+            "boss_ids": [
+                1068, // TOP
+                1065, // DSR
+                1062, // TEA
+                1061, // UWU
+                1060 // UCOB
+            ]
+        },
+        {
+            "category": "Anabaseios (Savage)",
+            "boss_ids": [
+                88, // P9S
+                89, // P10S
+                90, // P11S
+                91, // P12Sp1
+                92  // P12Sp2
+            ]
+        },
+        {
+            "category": "Abyssos (Savage)",
+            "boss_ids": [
+                83, // P5S
+                84, // P6S
+                85, // P7S
+                86, // P8Sp1
+                87 // P8Sp2
+            ]
+        },
+        {
+            "category": "Asphodelos (Savage)",
+            "boss_ids": [
+                78, // P1S
+                79, // P2S
+                80, // P3S
+                81, // P4Sp1
+                82 // P4Sp2
+            ]
+        }
+    ]
 }

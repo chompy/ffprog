@@ -5,9 +5,10 @@ go 1.18
 require (
 	github.com/RyuaNerin/go-fflogs v0.0.0-20220126135801-559f19edc42e
 	github.com/martinlindhe/base36 v1.1.1
-	github.com/matoous/go-nanoid v1.5.0
+	golang.org/x/time v0.3.0
 	gorm.io/driver/sqlite v1.5.0
 	gorm.io/gorm v1.25.0
+	muzzammil.xyz/jsonc v1.0.0
 )
 
 require (

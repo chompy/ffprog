@@ -8,11 +8,27 @@ import (
 	"strings"
 	"time"
 
+	"golang.org/x/time/rate"
 	"gorm.io/gorm"
 )
 
 // htmlTemplates map of html templates
 var htmlTemplates map[string]*template.Template
+
+// importUserTrack tracks users who import reports for rate limiting
+type importUserTrack struct {
+	IPAddress string
+	Limiter   *rate.Limiter
+}
+
+// importUserTracking is a list of all users who have imported reports
+var importUserTracking []*importUserTrack
+
+// displayEncounterData contains data to display encounter data
+type displayEncounterData struct {
+	Category   string
+	Encounters []EncounterInfo
+}
 
 // templateData Struct containing data to be made available to html template
 type templateData struct {
@@ -20,7 +36,7 @@ type templateData struct {
 	VersionString        string
 	Characters           []Character
 	CharacterProgression []CharacterProgression
-	EncounterList        []EncounterInfo
+	EncounterList        []displayEncounterData
 	Message              string
 }
 
@@ -107,15 +123,18 @@ func StartWeb(config *Config) error {
 	}
 	go fflogsImportQueue.Start()
 
-	http.Handle("/static/", http.StripPrefix("/static/", http.FileServer(http.Dir("web/static"))))
+	importUserTracking = make([]*importUserTrack, 0)
+	mux := http.NewServeMux()
 
-	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+	mux.Handle("/static/", http.StripPrefix("/static/", http.FileServer(http.Dir("web/static"))))
+
+	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
 		td := getBaseTemplateData()
 		htmlTemplates["home.tmpl"].ExecuteTemplate(w, "base.tmpl", td)
 	})
 
-	http.HandleFunc("/s", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("/s", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
 		td := getBaseTemplateData()
 		name := strings.TrimSpace(r.URL.Query().Get("n"))
@@ -133,7 +152,7 @@ func StartWeb(config *Config) error {
 		htmlTemplates["search.tmpl"].ExecuteTemplate(w, "blank.tmpl", td)
 	})
 
-	http.HandleFunc("/c/", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("/c/", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
 		td := getBaseTemplateData()
 		pathes := strings.Split(r.URL.Path, "/")
@@ -156,7 +175,7 @@ func StartWeb(config *Config) error {
 			displayError(w, err.Error(), 500)
 			return
 		}
-		td.EncounterList = encounterList
+		td.EncounterList = EncounterDisplayListFromEncounterInfoList(encounterList, config)
 		td.Characters = []Character{character}
 		characterProgress, err := db.FetchBestCharacterProgressions(character.ID)
 		if err != nil {
@@ -164,11 +183,33 @@ func StartWeb(config *Config) error {
 			return
 		}
 		td.CharacterProgression = characterProgress
-		htmlTemplates["character.tmpl"].ExecuteTemplate(w, "base.tmpl", td)
+		htmlTemplates["character_prog_list.tmpl"].ExecuteTemplate(w, "base.tmpl", td)
 	})
 
-	http.HandleFunc("/i/", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("/i/", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
+		userIPAddress := ReadUserIP(r)
+		if userIPAddress == "" {
+			displayAjaxMessage(w, "Invalid client.", 400)
+		}
+		var importTrack *importUserTrack = nil
+		for _, it := range importUserTracking {
+			if it.IPAddress == userIPAddress {
+				importTrack = it
+				break
+			}
+		}
+		if importTrack == nil {
+			importTrack = &importUserTrack{
+				IPAddress: userIPAddress,
+				Limiter:   rate.NewLimiter(0.1, 1),
+			}
+			importUserTracking = append(importUserTracking, importTrack)
+		}
+		if !importTrack.Limiter.Allow() {
+			displayAjaxMessage(w, "Too many import request sent, please wait a little bit.", http.StatusTooManyRequests)
+			return
+		}
 		reportID := FFLogReportURLToReportID(r.URL.Query().Get("r"))
 		if reportID == "" {
 			displayAjaxMessage(w, "FFLogs report URL not provided or invalid.", 400)
@@ -188,5 +229,5 @@ func StartWeb(config *Config) error {
 		displayAjaxMessage(w, "Your report is being processed.", 200)
 	})
 
-	return http.ListenAndServe(":8081", nil)
+	return http.ListenAndServe(":8081", mux)
 }

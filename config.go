@@ -2,26 +2,32 @@ package main
 
 import (
 	"encoding/json"
-	"os"
+
+	"muzzammil.xyz/jsonc"
 )
 
 const configFilePath = "config.json"
 const appName = "FFProg"
 const appVersion = "0.0.1"
 
+type DisplayEncounterCategory struct {
+	Name    string `json:"category"`
+	BossIDs []int  `json:"boss_ids"`
+}
+
 type Config struct {
-	FFLogsApiKey string `json:"fflogsApiKey"`
-	DatabaseFile string `json:"databaseFile"`
+	FFLogsApiKey        string                     `json:"fflogs_api_key"`
+	DatabaseFile        string                     `json:"database_file"`
+	DisplayedEncounters []DisplayEncounterCategory `json:"displayed_encounters"`
 }
 
 func LoadConfig() (Config, error) {
 	config := Config{}
-	rawConfigData, err := os.Open(configFilePath)
+	_, rawConfigData, err := jsonc.ReadFromFile(configFilePath)
 	if err != nil {
 		return config, err
 	}
-	jsonParser := json.NewDecoder(rawConfigData)
-	if err = jsonParser.Decode(&config); err != nil {
+	if err := json.Unmarshal(rawConfigData, &config); err != nil {
 		return config, err
 	}
 	return config, nil
