@@ -3,7 +3,7 @@
     <head>
         <title>{{ .AppName }}{{ template "title" . }}</title>
         <meta name="viewport" content="width=device-width, initial-scale=1">
-        <link rel="shortcut icon" href="/static/img/favicon.ico" />
+        <link rel="shortcut icon" href="data:image/vnd.microsoft.icon;base64,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" />
         <link rel="stylesheet"
             href="https://cdn.jsdelivr.net/npm/purecss@3.0.0/build/pure-min.css"
             integrity="sha384-X38yfunGUhNzHpBaEBsWLO+A0HDYOQi8ufWDkZ0k9e0eXz/tH3II7uKZ9msv++Ls" crossorigin="anonymous">
@@ -32,11 +32,20 @@
 
         {{ template "scripts" . }}
         <script type="text/javascript">
+            // fix htmlx not handling 4xx errors
             document.body.addEventListener('htmx:beforeOnLoad', function (evt) {
                 if (evt.detail.xhr.status >= 400 && evt.detail.xhr.status <= 499) {
                     evt.detail.shouldSwap = true;
                 }
-            }); 
+            });
+            // populate time
+            let timeTags = document.getElementsByClassName("time");
+            for (let i = 0; i < timeTags.length; i++) {
+                let timestamp = timeTags[i].getAttribute("data-timestamp");
+                if (!timestamp) { continue; }
+                let d = new Date(timestamp * 1000);
+                timeTags[i].innerHTML = d.toLocaleDateString() + ' ' + d.toLocaleTimeString();
+            }
         </script>
     </body>
 </html>

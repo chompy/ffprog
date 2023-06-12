@@ -1,0 +1,3 @@
+v0.0.2
+- Clear/last update times now displayed in user's local time instead of GMT.
+- Added favicon.

@@ -26,7 +26,10 @@
                         {{ $hasProg = 1 }}
                         {{ if $prog.IsKill }}
                             <span class="prog cleared" title="First Clear Duration: {{duration $prog.Duration}}">&#x2713;</span>
-                            <span class="last-update">Cleared {{displaydate $prog.Time }}</span>
+                            <span class="last-update">
+                                Cleared
+                                <span class="time" data-timestamp="{{timestamp $prog.Time }}">-</span>
+                            </span>
                         {{ else }}
                             <span class="prog" title="Fight Progression: {{ percent $prog.FightPercentage }} Longest Encounter Duration: {{duration $prog.Duration}}.">
                                 {{ if eq $prog.Phase 0 }}
@@ -35,7 +38,10 @@
                                     P{{ $prog.Phase }} {{ percent $prog.PhasePercentage }}
                                 {{ end }}
                             </span>
-                            <span class="last-update">Last Update {{displaydate $prog.Time }}</span>
+                            <span class="last-update">
+                                Last Update
+                                <span class="time" data-timestamp="{{timestamp $prog.Time}}">-</span>
+                            </span>
                         {{ end }}
                     {{ end }}
                 {{ end }}

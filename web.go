@@ -61,6 +61,9 @@ func getTemplates() (map[string]*template.Template, error) {
 		"displaydate": func(t time.Time) string {
 			return t.Format("2006-01-02 03:04 PM")
 		},
+		"timestamp": func(t time.Time) int64 {
+			return t.Unix()
+		},
 		"duration": func(d int64) string {
 			return fmt.Sprintf("%02d:%02d", (d/1000)/60, (d/1000)%60)
 		},
