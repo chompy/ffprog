@@ -8,7 +8,7 @@ import (
 
 const configFilePath = "config.json"
 const appName = "FFProg"
-const appVersion = "0.0.2"
+const appVersion = "0.0.3"
 
 type DisplayEncounterCategory struct {
 	Name    string `json:"category"`

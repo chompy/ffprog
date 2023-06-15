@@ -7,10 +7,10 @@
 {{ define "content" }}
 
 <div class="character-info">
-    <div class="character-links">
-        <a href="{{ fflogurl (index .Characters 0) }}">FFLogs</a>
-        <a href="#">Lodestone</a>
-    </div>
+    <div class="character-links">(
+        <a target="_blank" href="{{ fflogurl (index .Characters 0) }}">FFLogs</a>
+        <a target="_blank" href="https://na.finalfantasyxiv.com/lodestone/character/?q={{ (index .Characters 0).Name }}&worldname={{ (index .Characters 0).Server }}">Lodestone</a>
+    )</div>
     <h1 class="character-name">{{ (index .Characters 0).Name }}</h1>
     <h3 class="character-server">{{ (index .Characters 0).Server }}</h3>
 </div>

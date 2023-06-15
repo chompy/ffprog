@@ -115,8 +115,14 @@ h1, h2, h3 {
     margin-top: 20px;
     text-align: right;
 }
-#body .character-server {
-
+#body .character-links a::after {
+    content: "|";
+    display: inline-block;
+    margin-left: 5px;
+    margin-right: 3px;
+}
+#body .character-links a:last-child::after {
+    display:none;
 }
 
 #body .fight-category {
