@@ -8,6 +8,9 @@ import (
 	"strings"
 	"time"
 
+	"github.com/tdewolff/minify/v2"
+	"github.com/tdewolff/minify/v2/css"
+	"github.com/tdewolff/minify/v2/html"
 	"golang.org/x/time/rate"
 	"gorm.io/gorm"
 )
@@ -127,18 +130,23 @@ func StartWeb(config *Config) error {
 	}
 	go fflogsImportQueue.Start()
 
+	// init minifier
+	m := minify.New()
+	m.AddFunc("text/css", css.Minify)
+	m.AddFunc("text/html", html.Minify)
+
 	importUserTracking = make([]*importUserTrack, 0)
 	mux := http.NewServeMux()
 
-	mux.Handle("/static/", http.StripPrefix("/static/", http.FileServer(http.Dir("web/static"))))
+	mux.Handle("/static/", http.StripPrefix("/static/", m.Middleware(http.FileServer(http.Dir("web/static")))))
 
-	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+	mux.Handle("/", m.Middleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
 		td := getBaseTemplateData()
 		htmlTemplates["home.tmpl"].ExecuteTemplate(w, "base.tmpl", td)
-	})
+	})))
 
-	mux.HandleFunc("/s", func(w http.ResponseWriter, r *http.Request) {
+	mux.Handle("/s", m.Middleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
 		td := getBaseTemplateData()
 		name := strings.TrimSpace(r.URL.Query().Get("n"))
@@ -154,9 +162,9 @@ func StartWeb(config *Config) error {
 			}
 		}
 		htmlTemplates["search.tmpl"].ExecuteTemplate(w, "blank.tmpl", td)
-	})
+	})))
 
-	mux.HandleFunc("/c/", func(w http.ResponseWriter, r *http.Request) {
+	mux.Handle("/c/", m.Middleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
 		td := getBaseTemplateData()
 		pathes := strings.Split(r.URL.Path, "/")
@@ -188,9 +196,9 @@ func StartWeb(config *Config) error {
 		}
 		td.CharacterProgression = characterProgress
 		htmlTemplates["character_prog_list.tmpl"].ExecuteTemplate(w, "base.tmpl", td)
-	})
+	})))
 
-	mux.HandleFunc("/i/", func(w http.ResponseWriter, r *http.Request) {
+	mux.Handle("/i/", m.Middleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
 		userIPAddress := ReadUserIP(r)
 		if userIPAddress == "" {
@@ -231,7 +239,7 @@ func StartWeb(config *Config) error {
 			displayAjaxMessage(w, fmt.Sprintf("An Error Occured: %s", err.Error()), 500)
 		}
 		displayAjaxMessage(w, "Your report is being processed.", 200)
-	})
+	})))
 
 	return http.ListenAndServe(fmt.Sprintf(":%d", config.HTTPPort), mux)
 }
