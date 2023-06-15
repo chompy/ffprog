@@ -14,26 +14,7 @@ import (
 
 var fflogReportUrlRegex = regexp.MustCompile(`https?\:\/\/www\.fflogs\.com\/reports\/([A-Za-z1-9]*)`)
 
-var JobsMap = map[string]string{
-	"whitemage":   "whm",
-	"scholar":     "sch",
-	"astrologian": "ast",
-	"sage":        "sge",
-	"darkknight":  "drk",
-	"paladin":     "pld",
-	"gunbreaker":  "gnb",
-	"warrior":     "war",
-	"redmage":     "rdm",
-	"blackmage":   "blm",
-	"summoner":    "smn",
-	"bard":        "brd",
-	"machinist":   "mch",
-	"dancer":      "dnc",
-	"monk":        "mnk",
-	"samurai":     "sam",
-	"dragoon":     "drg",
-	"reaper":      "rpr",
-}
+var JobsMap = map[string]string{}
 
 const uuidLength = 6
 
@@ -45,10 +26,6 @@ func GenerateUID() string {
 		b[i] = letterRunes[rand.Intn(len(letterRunes))]
 	}
 	return string(b)
-}
-
-func JobNameToJobAbbr(name string) string {
-	return JobsMap[strings.ToLower(name)]
 }
 
 func FFLogsEncounterInfoHash(fflFight *structure.FightsFight) string {
@@ -107,4 +84,23 @@ func EncounterDisplayListFromEncounterInfoList(list []EncounterInfo, config *Con
 		}
 	}
 	return out
+}
+
+func GetServerRegion(serverName string) string {
+	for datacenter, serverList := range dcServerMap {
+		for _, serverListName := range serverList {
+			if strings.EqualFold(serverName, serverListName) {
+				return dcRegionMap[datacenter]
+			}
+		}
+	}
+	return "na"
+}
+
+func FFLogsCharacterURL(character Character) string {
+	return fmt.Sprintf(
+		"https://www.fflogs.com/character/%s/%s/%s",
+		GetServerRegion(character.Server),
+		strings.ToLower(character.Server),
+		strings.ToLower(character.Name))
 }

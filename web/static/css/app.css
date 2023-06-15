@@ -103,12 +103,20 @@ h1, h2, h3 {
 }
 
 /** CHARACTER **/
+#body .character-info {
+    border-bottom: 3px solid #75e6da;
+    padding-bottom: 4px;
+}
 #body .character-name {
     margin-top: 15px;
 }
+#body .character-links {
+    float: right;
+    margin-top: 20px;
+    text-align: right;
+}
 #body .character-server {
-    border-bottom: 3px solid #75e6da;
-    padding-bottom: 4px;
+
 }
 
 #body .fight-category {
@@ -150,4 +158,20 @@ h1, h2, h3 {
     text-align: center;
     display: block;
     margin-top: 6px;
+}
+@media (max-width: 640px) {
+    #body .fight-info {
+        padding: 1%;
+    }
+    #body .fight-info .prog {
+        font-size: 36px;
+    }
+}
+@media (max-width: 340px) {
+    #body .fight-info .prog {
+        font-size: 28px;
+    }
+    #body .fight-info .zone {
+        font-size: 18px;
+    }
 }

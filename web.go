@@ -67,6 +67,7 @@ func getTemplates() (map[string]*template.Template, error) {
 		"duration": func(d int64) string {
 			return fmt.Sprintf("%02d:%02d", (d/1000)/60, (d/1000)%60)
 		},
+		"fflogurl": FFLogsCharacterURL,
 	}
 	// make layout templates
 	for _, layoutFile := range layoutFiles {

@@ -1,0 +1,20 @@
+{
+    "astrologian": "ast",
+    "bard": "brd",
+    "blackmage": "blm",
+    "dancer": "dnc",
+    "darkknight": "drk",
+    "dragoon": "drg",
+    "gunbreaker": "gnb",
+    "machinist": "mch",
+    "monk": "mnk",
+    "paladin": "pld",
+    "reaper": "rpr",
+    "redmage": "rdm",
+    "sage": "sge",
+    "samurai": "sam",
+    "scholar": "sch",
+    "summoner": "smn",
+    "warrior": "war",
+    "whitemage": "whm"
+}
