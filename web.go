@@ -177,18 +177,40 @@ func StartWeb(config *Config) error {
 			displayError(w, "character id is required", 400)
 			return
 		}
+
+		encounterId := ""
+		if len(pathes) >= 4 {
+			encounterId = strings.TrimSpace(pathes[3])
+		}
+
 		character, err := db.FetchCharacterFromUID(uid)
 		if err != nil {
 			displayError(w, err.Error(), 500)
 			return
 		}
+		td.Characters = []Character{character}
+
+		// encounter detail
+		if encounterId != "" {
+			encounterInfo, err := db.FetchEncounterInfoFromCompareHash(encounterId)
+			if err != nil {
+				displayError(w, err.Error(), 500)
+				return
+			}
+			td.EncounterList = []displayEncounterData{{Encounters: []EncounterInfo{encounterInfo}}}
+
+			htmlTemplates["character_prog_details.tmpl"].ExecuteTemplate(w, "base.tmpl", td)
+			return
+		}
+
+		// encounter list
 		encounterList, err := db.FetchEncounterList()
 		if err != nil {
 			displayError(w, err.Error(), 500)
 			return
 		}
 		td.EncounterList = EncounterDisplayListFromEncounterInfoList(encounterList, config)
-		td.Characters = []Character{character}
+
 		characterProgress, err := db.FetchBestCharacterProgressions(character.ID)
 		if err != nil {
 			displayError(w, err.Error(), 500)

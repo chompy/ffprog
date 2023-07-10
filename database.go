@@ -117,6 +117,12 @@ func (d DatabaseHandler) FetchBestCharacterProgressions(characterID uint) ([]Cha
 	return out, nil
 }
 
+func (d DatabaseHandler) FetchCharacterProgressionForEncounter(characterID uint, encounterID uint) ([]CharacterProgression, error) {
+	characterProgression := make([]CharacterProgression, 0)
+	tx := d.Conn.Where("character_id = ? AND encounter_info_id = ?", characterID, encounterID).Order("fight_percentage asc, time desc").Find(&characterProgression)
+	return characterProgression, tx.Error
+}
+
 func (d DatabaseHandler) FetchCharacterFromCompareHash(hash string) (Character, error) {
 	character := Character{}
 	tx := d.Conn.First(&character, "compare_hash = ?", hash)
